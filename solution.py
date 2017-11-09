@@ -30,37 +30,33 @@ def naked_twins(values):
         the values dictionary with the naked twins eliminated from peers.
     """
     nkdtwins = []
-    values = reduce_puzzle(values)
     # Find all instances of naked twins
     boxtwins = [box for box in values.keys() if len(values[box]) == 2]
 
     for box in boxtwins:
-        # # Check row units
-        for pos, char in enumerate(rows):
-            if char == box[0]:
-                row = pos
-                break
+        row = nrow(box)
+        col = ncol(box)
+        sq = nsquare(col, row)
 
-        # # Check column units
-        for pos, char in enumerate(cols):
-            if char == box[1]:
-                col = pos
-                break
-
-        sq = int(col/3) + (int(row/3) * 3)
-
+        # Check for row twins
         if twin_in_row(values, box, row) is not None:
             if twin_in_row(values,box,row) not in nkdtwins:
                 nkdtwins.append(twin_in_row(values,box,row))
+        # Check for column twins
         if twin_in_col(values, box, col) is not None:
             if twin_in_col(values,box,col) not in nkdtwins:
                 nkdtwins.append(twin_in_col(values,box,col))
+        # Check for square twins
         if twin_in_square(values, box, sq) is not None:
             if twin_in_square(values,box,sq) not in nkdtwins:
                 nkdtwins.append(twin_in_square(values,box,sq))
-
+    display(values)
+    print(nkdtwins)
     # Eliminate the naked twins as possibilities for their peers
+    # This needs to be revised. During naked twin elimination, a peer twin may also be eliminated - leaving only 1 value for the twin box
+    # assign_value fails when that happens
     for m, ntwin in enumerate(nkdtwins):
+        tosquare = True
         # Eliminate possibilities for the row
         if ntwin[0][0] == ntwin[1][0]:
             pos = re.search(ntwin[0][0],rows).start()
@@ -73,9 +69,13 @@ def naked_twins(values):
             pos = re.search(ntwin[0][1],cols).start()
             colboxs = [c for c in column_units[pos] if c not in ntwin]
             for cb in colboxs:
-                assign_value(values,cb,values[cb].replace(values[ntwin[0]][0],""))
-                assign_value(values,cb,values[cb].replace(values[ntwin[0]][1],""))
+                try:
+                    assign_value(values,cb,values[cb].replace(values[ntwin[0]][0],""))
+                    assign_value(values,cb,values[cb].replace(values[ntwin[0]][1],""))
+                except:
+                    pdb.set_trace()
         else:
+            tosquare = False
             # Eliminate possibilities for the square
             for i in range(0,9):
                 if ntwin[0] in square_units[i]:
@@ -86,7 +86,37 @@ def naked_twins(values):
                 assign_value(values,sq,values[sq].replace(values[ntwin[0]][0],""))
                 assign_value(values,sq,values[sq].replace(values[ntwin[0]][1],""))
 
+        if tosquare:
+            # Also check row twins and column twins to see if they belong in the same square
+            # Perform square elimination if they are
+            box_a_column = ncol(ntwin[0])
+            box_a_row = nrow(ntwin[0])
+            box_a_square = nsquare(box_a_column, box_a_row)
+            box_b_column = ncol(ntwin[1])
+            box_b_row = nrow(ntwin[1])
+            box_b_square = nsquare(box_b_column, box_b_row)
+
+            if box_a_square == box_b_square:
+                # Square peers elimination
+                squboxs = [q for q in square_units[box_a_square] if q not in ntwin]
+                for sq in squboxs:
+                    assign_value(values,sq,values[sq].replace(values[ntwin[0]][0],""))
+                    assign_value(values,sq,values[sq].replace(values[ntwin[0]][1],""))
+
     return values
+
+def ncol(box):
+    for pos, char in enumerate(cols):
+        if char == box[1]:
+            return pos
+
+def nrow(box):
+    for pos, char in enumerate(rows):
+        if char == box[0]:
+            return pos
+
+def nsquare(col, row):
+    return int(col/3) + (int(row/3) * 3)
 
 def twin_in_row(values, box, row):
     twinunits = []
@@ -182,28 +212,28 @@ def reduce_puzzle(values):
             return False
     return values
 
-def search(values): # This works!
+def search(values):
     "Using depth-first search and propagation, try all possible values."
-    # First, reduce the puzzle using the previous function
-    # Naked twins elimination
+    if values is False:
+        return False ## Failed earlier
+
     flag = True
     while flag:
         copy = values.copy()
-        values = naked_twins(values)
-        if values == copy:
-            flag = False
-    print("Twins eliminated")
-    display(values)
-    pdb.set_trace()
-    values = reduce_puzzle(values)
-    if values is False:
-        return False ## Failed earlier
+        values = reduce_puzzle(values)
+        if values is not False:
+            values = naked_twins(values)
+            if values == copy:
+                flag = False
+        else:
+            return False
+
     if all(len(values[s]) == 1 for s in boxes):
         return xconstraint(values) ## Possibly solved!
+
     # Choose one of the unfilled squares with the fewest possibilities
     n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
     # Now use recurrence to solve each one of the resulting sudokus, and 
-    display(values)
     for value in values[s]:
         new_sudoku = values.copy()
         new_sudoku = assign_value(new_sudoku,s,value)
@@ -259,7 +289,7 @@ if __name__ == '__main__':
     peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
     twin_sudoku_grid = '1.4.9..68956.18.34..84.695151.....868..6...1264..8..97781923645495.6.823.6.854179'
-    # display(solve(diag_sudoku_grid))
+    display(solve(diag_sudoku_grid))
     grid_zero = grid_values(diag_sudoku_grid)
     display(grid_zero)
     print("**********************")
@@ -267,7 +297,8 @@ if __name__ == '__main__':
         display(solve(diag_sudoku_grid))
     except:
         print("Solution not found")
-    # display(solve(twin_sudoku_grid))
+
+    ## FOR SUBMISSION ##
     # for k,v in enumerate(square_units):
     #     print("%s,%s" % (k, v))
     # try:

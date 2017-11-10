@@ -11,7 +11,6 @@ def assign_value(values, box, value):
     Please use this function to update your values dictionary!
     Assigns a value to a given box. If it updates the board record it.
     """
-
     # Don't waste memory appending actions that don't actually change any values
     if values[box] == value:
         return values
@@ -50,58 +49,58 @@ def naked_twins(values):
         if twin_in_square(values, box, sq) is not None:
             if twin_in_square(values,box,sq) not in nkdtwins:
                 nkdtwins.append(twin_in_square(values,box,sq))
-    display(values)
-    print(nkdtwins)
+
     # Eliminate the naked twins as possibilities for their peers
-    # This needs to be revised. During naked twin elimination, a peer twin may also be eliminated - leaving only 1 value for the twin box
-    # assign_value fails when that happens
     for m, ntwin in enumerate(nkdtwins):
-        tosquare = True
-        # Eliminate possibilities for the row
-        if ntwin[0][0] == ntwin[1][0]:
-            pos = re.search(ntwin[0][0],rows).start()
-            rowboxs = [r for r in row_units[pos] if r not in ntwin]
-            for rb in rowboxs:
-                assign_value(values,rb,values[rb].replace(values[ntwin[0]][0],""))
-                assign_value(values,rb,values[rb].replace(values[ntwin[0]][1],""))
-        elif ntwin[0][1] == ntwin[1][1]:
-            # Eliminate possibilities for the column
-            pos = re.search(ntwin[0][1],cols).start()
-            colboxs = [c for c in column_units[pos] if c not in ntwin]
-            for cb in colboxs:
-                try:
-                    assign_value(values,cb,values[cb].replace(values[ntwin[0]][0],""))
-                    assign_value(values,cb,values[cb].replace(values[ntwin[0]][1],""))
-                except:
-                    pdb.set_trace()
-        else:
-            tosquare = False
-            # Eliminate possibilities for the square
-            for i in range(0,9):
-                if ntwin[0] in square_units[i]:
-                    pos = i
-                    break
-            squboxs = [q for q in square_units[pos] if q not in ntwin]
-            for sq in squboxs:
-                assign_value(values,sq,values[sq].replace(values[ntwin[0]][0],""))
-                assign_value(values,sq,values[sq].replace(values[ntwin[0]][1],""))
-
-        if tosquare:
-            # Also check row twins and column twins to see if they belong in the same square
-            # Perform square elimination if they are
-            box_a_column = ncol(ntwin[0])
-            box_a_row = nrow(ntwin[0])
-            box_a_square = nsquare(box_a_column, box_a_row)
-            box_b_column = ncol(ntwin[1])
-            box_b_row = nrow(ntwin[1])
-            box_b_square = nsquare(box_b_column, box_b_row)
-
-            if box_a_square == box_b_square:
-                # Square peers elimination
-                squboxs = [q for q in square_units[box_a_square] if q not in ntwin]
+        # If either boxes are less than 2 in length then there's no more need for elimination
+        # Previous elimination iterations have reduced these to single value boxes
+        if len(values[ntwin[0]]) > 1 and len(values[ntwin[1]]) > 1:
+            tosquare = True
+            # Eliminate possibilities for the row
+            if ntwin[0][0] == ntwin[1][0]:
+                pos = re.search(ntwin[0][0],rows).start()
+                rowboxs = [r for r in row_units[pos] if r not in ntwin]
+                for rb in rowboxs:
+                    assign_value(values,rb,values[rb].replace(values[ntwin[0]][0],""))
+                    assign_value(values,rb,values[rb].replace(values[ntwin[0]][1],""))
+            elif ntwin[0][1] == ntwin[1][1]:
+                # Eliminate possibilities for the column
+                pos = re.search(ntwin[0][1],cols).start()
+                colboxs = [c for c in column_units[pos] if c not in ntwin]
+                for cb in colboxs:
+                    try:
+                        assign_value(values,cb,values[cb].replace(values[ntwin[0]][0],""))
+                        assign_value(values,cb,values[cb].replace(values[ntwin[0]][1],""))
+                    except:
+                        pdb.set_trace()
+            else:
+                tosquare = False
+                # Eliminate possibilities for the square
+                for i in range(0,9):
+                    if ntwin[0] in square_units[i]:
+                        pos = i
+                        break
+                squboxs = [q for q in square_units[pos] if q not in ntwin]
                 for sq in squboxs:
                     assign_value(values,sq,values[sq].replace(values[ntwin[0]][0],""))
                     assign_value(values,sq,values[sq].replace(values[ntwin[0]][1],""))
+
+            if tosquare:
+                # Also check row twins and column twins to see if they belong in the same square
+                # Perform square elimination if they are
+                box_a_column = ncol(ntwin[0])
+                box_a_row = nrow(ntwin[0])
+                box_a_square = nsquare(box_a_column, box_a_row)
+                box_b_column = ncol(ntwin[1])
+                box_b_row = nrow(ntwin[1])
+                box_b_square = nsquare(box_b_column, box_b_row)
+
+                if box_a_square == box_b_square:
+                    # Square peers elimination
+                    squboxs = [q for q in square_units[box_a_square] if q not in ntwin]
+                    for sq in squboxs:
+                        assign_value(values,sq,values[sq].replace(values[ntwin[0]][0],""))
+                        assign_value(values,sq,values[sq].replace(values[ntwin[0]][1],""))
 
     return values
 
@@ -230,6 +229,7 @@ def search(values):
 
     if all(len(values[s]) == 1 for s in boxes):
         return xconstraint(values) ## Possibly solved!
+        # return values
 
     # Choose one of the unfilled squares with the fewest possibilities
     n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
@@ -241,6 +241,7 @@ def search(values):
         if attempt:
             return attempt
 
+    return False
 
 def xconstraint(values):
     diag_left = []
@@ -251,10 +252,10 @@ def xconstraint(values):
         diag_right.append(values[row_units[i][-i-1]])
         diag_right.append(values[row_units[-i][i-1]])
 
-    # Missing row_units[0]
+    # Add back the missing row_units[0]
     diag_right.append(values[row_units[0][-1]])
     diag_left.append(values[row_units[0][0]])
-    # Diagonal constraint checks
+    # Diagonal constraint checks. Each set will have 9 digits if the numbers are unique
     if len(set(diag_right)) + len(set(diag_left)) == 18:
         return values
     else:
@@ -289,10 +290,9 @@ if __name__ == '__main__':
     peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
     twin_sudoku_grid = '1.4.9..68956.18.34..84.695151.....868..6...1264..8..97781923645495.6.823.6.854179'
-    display(solve(diag_sudoku_grid))
     grid_zero = grid_values(diag_sudoku_grid)
     display(grid_zero)
-    print("**********************")
+    print("\n")
     try:
         display(solve(diag_sudoku_grid))
     except:

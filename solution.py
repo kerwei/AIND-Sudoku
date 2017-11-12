@@ -97,6 +97,10 @@ def reduce_puzzle(values):
 
 def altsearch(values):
     "Using depth-first search and propagation, try all possible values."
+    # Diagonal constraint failed
+    if diagonvals(values) == False:
+        return False
+
     values = reduce_puzzle(values)
     if values is False:
         return False ## Failed earlier
@@ -138,7 +142,7 @@ def xconstraint(values):
         return False
 
 
-def initxvalues(values):
+def diagonvals(values):
     diag = [[],[]]
     ind = [0,1]
 
@@ -157,6 +161,10 @@ def initxvalues(values):
         diag[1].append(values[row_units[0][-1]])
     if len(values[row_units[0][0]]) == 1:
         diag[0].append(values[row_units[0][0]])
+
+    if (len(diag[0]) > len(set(diag[0]))) | (len(diag[1]) > len(set(diag[1]))):
+        return False
+
     return dict(zip(ind,diag))
 
 
@@ -206,7 +214,7 @@ if __name__ == '__main__':
     twin_sudoku_grid = '1.4.9..68956.18.34..84.695151.....868..6...1264..8..97781923645495.6.823.6.854179'
 
     values = grid_values(diag_sudoku_grid)
-    initdiag = initxvalues(values)
+    initdiag = diagonvals(values)
     values = reduce_puzzle(values)
     display(values)
 

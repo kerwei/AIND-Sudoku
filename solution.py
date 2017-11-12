@@ -5,6 +5,7 @@ import re
 rows = 'ABCDEFGHI'
 cols = '123456789'
 assignments = []
+currtwin = []
 
 def cross(a, b):
     "Cross product of elements in A and elements in B."
@@ -108,6 +109,7 @@ def reduce_puzzle(values):
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
+    display(values)
     # Diagonal constraint failed
     if diagonvals(values) == False:
         return False
@@ -115,16 +117,24 @@ def search(values):
     values = reduce_puzzle(values)
     if values is False:
         return False ## Failed earlier
-    # First, reduce the puzzle using the previous function
+
+    # Naked twin elimination
     values = naked_twins(values)
     if all(len(values[s]) == 1 for s in boxes): 
         return diagonvals(values) ## Possibly solved!
-    # Choose one of the unfilled squares with the fewest possibilities
-    n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
+        # return values
+    # Prioritize DFS for naked twins if available
+    if len(currtwin) > 0:
+        s = currtwin
+        del currtwin[:]
+    else:
+        # Choose one of the unfilled squares with the fewest possibilities
+        n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
     # Now use recurrence to solve each one of the resulting sudokus, and 
     for value in values[s]:
         new_sudoku = values.copy()
         new_sudoku = assign_value(new_sudoku,s,value)
+        print("Assigned %s with %s" % (values[s],value))
         attempt = search(new_sudoku)
         if attempt:
             return attempt
@@ -157,6 +167,7 @@ def diagonvals(values):
 
 
 def naked_twins(values):
+    done = False
     bidigit = [s for s in boxes if len(values[s]) == 2]
     # Look for naked twins
     if len(bidigit) > 0:
@@ -166,6 +177,7 @@ def naked_twins(values):
         return values
 
     if len(nkdtwin) > 0:
+        currtwin = nkdtwin[0]
         # Eliminate the first pair of twins
         for i in range(0,9):
             # Row twins
@@ -174,18 +186,23 @@ def naked_twins(values):
                 for rp in row_peers:
                     values = assign_value(values,rp,values[rp].replace(values[nkdtwin[0][0]][0],''))
                     values = assign_value(values,rp,values[rp].replace(values[nkdtwin[0][0]][1],''))
+                break
             # Column twins
             if nkdtwin[0][0] in column_units[i] and nkdtwin[0][1] in column_units[i]:
                 col_peers = list(set(column_units[i])-set(nkdtwin[0]))
                 for cp in col_peers:
                     values = assign_value(values,cp,values[cp].replace(values[nkdtwin[0][0]][0],''))
                     values = assign_value(values,cp,values[cp].replace(values[nkdtwin[0][0]][1],''))
+                break
+
+        for i in range(0,9):
             # Square twins
             if nkdtwin[0][0] in square_units[i] and nkdtwin[0][1] in square_units[i]:
                 sq_peers = list(set(square_units[i])-set(nkdtwin[0]))
                 for sq in sq_peers:
                     values = assign_value(values,sq,values[sq].replace(values[nkdtwin[0][0]][0],''))
                     values = assign_value(values,sq,values[sq].replace(values[nkdtwin[0][0]][1],''))
+                break
     return values
 
 

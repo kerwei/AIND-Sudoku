@@ -6,6 +6,17 @@ rows = 'ABCDEFGHI'
 cols = '123456789'
 assignments = []
 
+def cross(a, b):
+    "Cross product of elements in A and elements in B."
+    return [s+t for s in a for t in b]
+
+boxes = cross(rows, cols)
+row_units = [cross(r, cols) for r in rows]
+column_units = [cross(rows, c) for c in cols]
+square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+unitlist = row_units + column_units + square_units
+units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
+peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
 
 def assign_value(values, box, value):
     """
@@ -22,11 +33,6 @@ def assign_value(values, box, value):
     return values
 
 
-def cross(a, b):
-    "Cross product of elements in A and elements in B."
-    return [s+t for s in a for t in b]
-
-
 def grid_values(grid):
     """
     Convert grid into a dict of {square: char} with '123456789' for empties.
@@ -38,6 +44,7 @@ def grid_values(grid):
             Values: The value in each box, e.g., '8'. If the box has no value, then the value will be '123456789'.
     """
     chars = []
+    boxes = cross(rows, cols)
     digits = '123456789'
     for c in grid:
         if c in digits:
@@ -73,6 +80,10 @@ def eliminate(values):
 
 
 def only_choice(values):
+    row_units = [cross(r, cols) for r in rows]
+    column_units = [cross(rows, c) for c in cols]
+    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+    unitlist = row_units + column_units + square_units
     for unit in unitlist:
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
@@ -95,7 +106,7 @@ def reduce_puzzle(values):
     return values
 
 
-def altsearch(values):
+def search(values):
     "Using depth-first search and propagation, try all possible values."
     # Diagonal constraint failed
     if diagonvals(values) == False:
@@ -105,41 +116,18 @@ def altsearch(values):
     if values is False:
         return False ## Failed earlier
     # First, reduce the puzzle using the previous function
-    values = new_naked_twins(values)
+    values = naked_twins(values)
     if all(len(values[s]) == 1 for s in boxes): 
-        return xconstraint(values) ## Possibly solved!
+        return diagonvals(values) ## Possibly solved!
     # Choose one of the unfilled squares with the fewest possibilities
     n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
     # Now use recurrence to solve each one of the resulting sudokus, and 
     for value in values[s]:
         new_sudoku = values.copy()
         new_sudoku = assign_value(new_sudoku,s,value)
-        attempt = altsearch(new_sudoku)
+        attempt = search(new_sudoku)
         if attempt:
             return attempt
-
-
-def xconstraint(values):
-    display(values)
-    diag_left = []
-    diag_right = []
-    for i in range(1,5):
-        diag_left.append(values[row_units[i][i]])
-        diag_left.append(values[row_units[-i][-i]])
-        diag_right.append(values[row_units[i][-i-1]])
-        diag_right.append(values[row_units[-i][i-1]])
-
-    # Add back the missing row_units[0]
-    diag_right.append(values[row_units[0][-1]])
-    diag_left.append(values[row_units[0][0]])
-    # Diagonal constraint checks. Each set will have 9 digits if the numbers are unique
-    print(set(diag_left))
-    print(set(diag_right))
-    # pdb.set_trace()
-    if len(set(diag_right)) + len(set(diag_left)) == 18:
-        return values
-    else:
-        return False
 
 
 def diagonvals(values):
@@ -165,10 +153,10 @@ def diagonvals(values):
     if (len(diag[0]) > len(set(diag[0]))) | (len(diag[1]) > len(set(diag[1]))):
         return False
 
-    return dict(zip(ind,diag))
+    return values
 
 
-def new_naked_twins(values):
+def naked_twins(values):
     bidigit = [s for s in boxes if len(values[s]) == 2]
     # Look for naked twins
     if len(bidigit) > 0:
@@ -201,9 +189,25 @@ def new_naked_twins(values):
     return values
 
 
+def solve(grid):
+    """
+    Find the solution to a Sudoku grid.
+    Args:
+        grid(string): a string representing a sudoku grid.
+            Example: '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
+    Returns:
+        The dictionary representation of the final sudoku grid. False if no solution exists.
+    """
+    values = reduce_puzzle(grid_values(grid))
+    res = search(values)
+    if res:
+        return res
+    else:
+        return False
+
+
 if __name__ == '__main__':
     boxes = cross(rows, cols)
-
     row_units = [cross(r, cols) for r in rows]
     column_units = [cross(rows, c) for c in cols]
     square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
@@ -211,30 +215,16 @@ if __name__ == '__main__':
     units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
     peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
-    twin_sudoku_grid = '1.4.9..68956.18.34..84.695151.....868..6...1264..8..97781923645495.6.823.6.854179'
+    display(solve(diag_sudoku_grid))
 
-    values = grid_values(diag_sudoku_grid)
-    initdiag = diagonvals(values)
-    values = reduce_puzzle(values)
-    display(values)
+    # FOR SUBMISSION ##
+    for k,v in enumerate(square_units):
+        print("%s,%s" % (k, v))
+    try:
+        from visualize import visualize_assignments
+        visualize_assignments(assignments)
 
-    res = altsearch(values)
-    if res:
-        display(res)
-    # print("\n")
-    # try:
-    #     display(solve(diag_sudoku_grid))
-    # except:
-    #     print("Solution not found")
-
-    ## FOR SUBMISSION ##
-    # for k,v in enumerate(square_units):
-    #     print("%s,%s" % (k, v))
-    # try:
-    #     from visualize import visualize_assignments
-    #     visualize_assignments(assignments)
-
-    # except SystemExit:
-    #     pass
-    # except:
-    #     print('We could not visualize your board due to a pygame issue. Not a problem! It is not a requirement.')
+    except SystemExit:
+        pass
+    except:
+        print('We could not visualize your board due to a pygame issue. Not a problem! It is not a requirement.')

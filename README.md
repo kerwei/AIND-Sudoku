@@ -3,11 +3,11 @@
 
 # Question 1 (Naked Twins)
 Q: How do we use constraint propagation to solve the naked twins problem?  
-A: *Student should provide answer here*
+A: Naked twins are only applicable to peers. Therefore, while checking for twins, instead of evaluating the value of all boxes on the board, only a total of 20 peer boxes need to be checked.
 
 # Question 2 (Diagonal Sudoku)
 Q: How do we use constraint propagation to solve the diagonal sudoku problem?  
-A: *Student should provide answer here*
+A: The diagonal sudoku requires that the diagonals of the sudoku contain a unique value between 1 - 9 in each of its boxes. During the Depth First Search process, if a value is assgned to more than 1 box in the diagonals, the branch need not be pursued further as it will only lead to a rejected solution.
 
 ### Install
 

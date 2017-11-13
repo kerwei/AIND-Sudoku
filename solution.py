@@ -1,6 +1,6 @@
 import pdb
 import re
-
+from tests import test_solution
 
 rows = 'ABCDEFGHI'
 cols = '123456789'
@@ -76,7 +76,8 @@ def eliminate(values):
     for box in solved_values:
         digit = values[box]
         for peer in peers[box]:
-            values[peer] = values[peer].replace(digit,'')
+            # values[peer] = values[peer].replace(digit,'')
+            values = assign_value(values, peer, values[peer].replace(digit,''))
     return values
 
 
@@ -89,7 +90,8 @@ def only_choice(values):
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
             if len(dplaces) == 1:
-                values[dplaces[0]] = digit
+                # values[dplaces[0]] = digit
+                values = assign_value(values, dplaces[0], digit)
     return values
 
 
@@ -120,6 +122,9 @@ def search(values):
 
     # Naked twin elimination
     values = naked_twins(values)
+    if values is not False:
+        display(values)
+
     if all(len(values[s]) == 1 for s in boxes): 
         return diagonvals(values) ## Possibly solved!
         # return values
@@ -134,7 +139,7 @@ def search(values):
     for value in values[s]:
         new_sudoku = values.copy()
         new_sudoku = assign_value(new_sudoku,s,value)
-        print("Assigned %s with %s" % (values[s],value))
+        print("Assigned %s with %s" % (s,value))
         attempt = search(new_sudoku)
         if attempt:
             return attempt
@@ -167,10 +172,9 @@ def diagonvals(values):
 
 
 def naked_twins(values):
-    done = False
     bidigit = [s for s in boxes if len(values[s]) == 2]
-    # Look for naked twins
-    if len(bidigit) > 0:
+    # Look for naked twins. At least 2 boxes of 2-digit values to form a twin
+    if len(bidigit) > 1:
         nkdtwin = [[b,p] for b in bidigit for p in peers[b] if values[b] == values[p]]
     else:
         # No twins found

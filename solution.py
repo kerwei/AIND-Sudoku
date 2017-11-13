@@ -19,6 +19,7 @@ unitlist = row_units + column_units + square_units
 units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
 
+
 def assign_value(values, box, value):
     """
     Please use this function to update your values dictionary!
@@ -72,16 +73,21 @@ def display(values):
 
 
 def eliminate(values):
+    """
+    Remove solved values from the string of possible values in unsolved boxes
+    """
     solved_values = [box for box in values.keys() if len(values[box]) == 1]
     for box in solved_values:
         digit = values[box]
         for peer in peers[box]:
-            # values[peer] = values[peer].replace(digit,'')
             values = assign_value(values, peer, values[peer].replace(digit,''))
     return values
 
 
 def only_choice(values):
+    """
+    Assign a particular digit to a box if that is the only possible value left
+    """
     row_units = [cross(r, cols) for r in rows]
     column_units = [cross(rows, c) for c in cols]
     square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
@@ -90,12 +96,14 @@ def only_choice(values):
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
             if len(dplaces) == 1:
-                # values[dplaces[0]] = digit
                 values = assign_value(values, dplaces[0], digit)
     return values
 
 
 def reduce_puzzle(values):
+    """
+    Eliminate solved values from peer boxes and assign single-digit possibilities as solved values
+    """
     solved_values = [box for box in values.keys() if len(values[box]) == 1]
     stalled = False
     while not stalled:
@@ -111,27 +119,24 @@ def reduce_puzzle(values):
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
-    display(values)
-    # Diagonal constraint failed
+    # If it fails the diagonal constraint
     if diagonvals(values) == False:
         return False
-
+    # If it results in an impossible solution
     values = reduce_puzzle(values)
     if values is False:
         return False ## Failed earlier
 
-    # Naked twin elimination
+    # Check for the existence of naked twins
     values = naked_twins(values)
-    if values is not False:
-        display(values)
 
     if all(len(values[s]) == 1 for s in boxes): 
         return diagonvals(values) ## Possibly solved!
-        # return values
+
     # Prioritize DFS for naked twins if available
     if len(currtwin) > 0:
         s = currtwin
-        del currtwin[:]
+        del currtwin[:] # Possibly unecessary
     else:
         # Choose one of the unfilled squares with the fewest possibilities
         n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
@@ -139,17 +144,20 @@ def search(values):
     for value in values[s]:
         new_sudoku = values.copy()
         new_sudoku = assign_value(new_sudoku,s,value)
-        print("Assigned %s with %s" % (s,value))
+
         attempt = search(new_sudoku)
         if attempt:
             return attempt
 
 
 def diagonvals(values):
+    """
+    Diagonal sudoku constraint
+    """
     diag = [[],[]]
-    ind = [0,1]
 
     for i in range(1,5):
+        # Diagonal values except for the top row (row_units[0])
         if len(values[row_units[i][i]]) == 1:
             diag[0].append(values[row_units[i][i]])
         if len(values[row_units[-i][-i]]) == 1:
@@ -159,12 +167,13 @@ def diagonvals(values):
         if len(values[row_units[-i][i-1]]) == 1:
             diag[1].append(values[row_units[-i][i-1]])
 
-    # Add back the missing row_units[0]
+    # Also include the top row skipped previously (row_units[0])
     if len(values[row_units[0][-i]]) == 1:
         diag[1].append(values[row_units[0][-1]])
     if len(values[row_units[0][0]]) == 1:
         diag[0].append(values[row_units[0][0]])
 
+    # Diagonal constraint fails if there are non-unique values
     if (len(diag[0]) > len(set(diag[0]))) | (len(diag[1]) > len(set(diag[1]))):
         return False
 
@@ -172,6 +181,10 @@ def diagonvals(values):
 
 
 def naked_twins(values):
+    """
+    Naked twin elimination
+    """
+    # Get all boxes with 2 digits
     bidigit = [s for s in boxes if len(values[s]) == 2]
     # Look for naked twins. At least 2 boxes of 2-digit values to form a twin
     if len(bidigit) > 1:
@@ -180,6 +193,36 @@ def naked_twins(values):
         # No twins found
         return values
 
+    # If twins are found
+    if len(nkdtwin) > 0:
+        for twin in nkdtwin:
+            # Only 2-digit values are considered. 
+            # If a twin ceases to be so due to previous rounds of elimination, we skip it.
+            if len(values[twin[0]]) == 2 and len(values[twin[1]]) == 2:
+                twpeers = peers[twin[0]].intersection(peers[twin[1]])
+                for peer in twpeers:
+                    values = assign_value(values, peer, values[peer].replace(values[twin[0]][0],''))
+                    values = assign_value(values, peer, values[peer].replace(values[twin[0]][1],''))
+
+    return values
+
+
+## NOT USED
+def orig_naked_twins(values):
+    """
+    Naked twin elimination
+    """
+    # Get all boxes with 2 digits
+    bidigit = [s for s in boxes if len(values[s]) == 2]
+    # Look for naked twins. At least 2 boxes of 2-digit values to form a twin
+    if len(bidigit) > 1:
+        nkdtwin = [[b,p] for b in bidigit for p in peers[b] if values[b] == values[p]]
+    else:
+        # No twins found
+        return values
+
+    # If naked twins found, process the first pair and return the result for DFS
+    # Other pairs can get processed later on when DFS sends the grid recursively for naked twin elimination
     if len(nkdtwin) > 0:
         currtwin = nkdtwin[0]
         # Eliminate the first pair of twins
@@ -200,7 +243,7 @@ def naked_twins(values):
                 break
 
         for i in range(0,9):
-            # Square twins
+            # Square twins. Separate loop because a row/column twin can also be a square twin
             if nkdtwin[0][0] in square_units[i] and nkdtwin[0][1] in square_units[i]:
                 sq_peers = list(set(square_units[i])-set(nkdtwin[0]))
                 for sq in sq_peers:
@@ -228,17 +271,9 @@ def solve(grid):
 
 
 if __name__ == '__main__':
-    boxes = cross(rows, cols)
-    row_units = [cross(r, cols) for r in rows]
-    column_units = [cross(rows, c) for c in cols]
-    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
-    unitlist = row_units + column_units + square_units
-    units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
-    peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
     display(solve(diag_sudoku_grid))
 
-    # FOR SUBMISSION ##
     for k,v in enumerate(square_units):
         print("%s,%s" % (k, v))
     try:

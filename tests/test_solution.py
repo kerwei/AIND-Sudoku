@@ -95,5 +95,4 @@ class TestDiagonalSudoku(unittest.TestCase):
         self.assertEqual(solution.solve(self.diagonal_grid), self.solved_diag_sudoku)
 
 if __name__ == '__main__':
-    TestNakedTwins.test_naked_twins()
-    # unittest.main()
+    unittest.main()

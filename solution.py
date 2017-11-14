@@ -1,10 +1,9 @@
-# import pdb
+import pdb
 
 
 rows = 'ABCDEFGHI'
 cols = '123456789'
 assignments = []
-currtwin = []
 
 def cross(a, b):
     "Cross product of elements in A and elements in B."
@@ -14,7 +13,12 @@ boxes = cross(rows, cols)
 row_units = [cross(r, cols) for r in rows]
 column_units = [cross(rows, c) for c in cols]
 square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
-unitlist = row_units + column_units + square_units
+# diagasc = ['A1','B2','C3','D4','E5','F6','G7','H8','I9']
+diagasc = [[rows[i] + cols[i]] for i in range(0,9)]
+# diagdesc = ['A9','B8','C7','D6','E5','F4','G3','H2','I1']
+diagdesc = [[rows[i-1] + cols[-i]] for i in range(1,10)]
+
+unitlist = row_units + column_units + square_units + diagasc + diagdesc
 units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
 peers = dict((s, set(sum(units[s],[]))-set([s])) for s in boxes)
 
@@ -45,13 +49,15 @@ def grid_values(grid):
             Values: The value in each box, e.g., '8'. If the box has no value, then the value will be '123456789'.
     """
     chars = []
-    boxes = cross(rows, cols)
-    digits = '123456789'
+    # boxes = cross(rows, cols)
+    # digits = '123456789'
     for c in grid:
-        if c in digits:
+        # if c in digits:
+        if c in cols:
             chars.append(c)
         if c == '.':
-            chars.append(digits)
+            # chars.append(digits)
+            chars.append(cols)
     assert len(chars) == 81
     return dict(zip(boxes, chars))
 
@@ -88,10 +94,10 @@ def only_choice(values):
     """
     Assign a particular digit to a box if that is the only possible value left
     """
-    row_units = [cross(r, cols) for r in rows]
-    column_units = [cross(rows, c) for c in cols]
-    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
-    unitlist = row_units + column_units + square_units
+    # row_units = [cross(r, cols) for r in rows]
+    # column_units = [cross(rows, c) for c in cols]
+    # square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+    # unitlist = row_units + column_units + square_units
     for unit in unitlist:
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
@@ -118,10 +124,12 @@ def reduce_puzzle(values):
     return values
 
 
-def search(values):
+def oldsearch(values):
     "Using depth-first search and propagation, try all possible values."
+    currtwin = ''
     # If it fails the diagonal constraint
-    if diagonvals(values) == False:
+    if diagonvals(values) == False: # Diagonvals seems to be faster - possibly because it iterates only from 1 - 5 instead of 1 - 9 over 2 lists
+    # if altdiagonvals(values) == False:
         return False
     # If it results in an impossible solution
     values = reduce_puzzle(values)
@@ -129,23 +137,43 @@ def search(values):
         return False ## Failed earlier
 
     # Check for the existence of naked twins
-    values = naked_twins(values)
+    # values = naked_twins(values)
 
     if all(len(values[s]) == 1 for s in boxes): 
         return diagonvals(values) ## Possibly solved!
+        # return altdiagonvals(values) ## Possibly solved!
 
-    # Prioritize DFS for naked twins if available
-    if len(currtwin) > 0:
-        s = currtwin[0]
-        # print(s)
-        del currtwin[:] # Possibly unecessary
-    else:
-        # Choose one of the unfilled squares with the fewest possibilities
-        n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
+    # # Prioritize DFS for naked twins if available
+    # if currtwin != '':
+    #     s = currtwin
+    #     # print(s)
+    #     # del currtwin[:] # Possibly unecessary
+    # else:
+    # Choose one of the unfilled squares with the fewest possibilities
+    n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
     # Now use recurrence to solve each one of the resulting sudokus, and 
     for value in values[s]:
         new_sudoku = values.copy()
         # new_sudoku = assign_value(new_sudoku,s,value)
+        new_sudoku[s] = value
+        attempt = search(new_sudoku)
+        if attempt:
+            return attempt
+
+
+def search(values):
+    "Using depth-first search and propagation, try all possible values."
+    # First, reduce the puzzle using the previous function
+    values = reduce_puzzle(values)
+    if values is False:
+        return False ## Failed earlier
+    if all(len(values[s]) == 1 for s in boxes): 
+        return values ## Solved!
+    # Choose one of the unfilled squares with the fewest possibilities
+    n,s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
+    # Now use recurrence to solve each one of the resulting sudokus, and 
+    for value in values[s]:
+        new_sudoku = values.copy()
         new_sudoku[s] = value
         attempt = search(new_sudoku)
         if attempt:
@@ -177,10 +205,19 @@ def diagonvals(values):
 
     # Diagonal constraint fails if there are non-unique values
     if (len(diag[0]) > len(set(diag[0]))) | (len(diag[1]) > len(set(diag[1]))):
-        del diag[:]
+        # del diag[:]
         return False
     
-    del diag[:]
+    # del diag[:]
+    return values
+
+
+def altdiagonvals(values):
+    ascvals = [values[k] for k in diagasc if len(values[k]) == 1]
+    descvals = [values[m] for m in diagdesc if len(values[m]) == 1]
+
+    if (len(ascvals) > len(set(ascvals))) | (len(descvals) > len(set(descvals))):
+        return False
     return values
 
 
@@ -207,7 +244,7 @@ def naked_twins(values):
             if [twn[1],twn[0]] in nkdtwin:
                 nkdtwin.remove(twn)
         # To be consumed by the DFS later
-        currtwin.append(nkdtwin[0][0])
+        currtwin = nkdtwin[0][0]
         for twin in nkdtwin:
             # Only 2-digit values are considered. 
             # If a twin ceases to be so due to previous rounds of elimination, we skip it.
@@ -230,7 +267,8 @@ def solve(grid):
     Returns:
         The dictionary representation of the final sudoku grid. False if no solution exists.
     """
-    values = reduce_puzzle(grid_values(grid))
+    # values = reduce_puzzle(grid_values(grid))
+    values = grid_values(grid)
     res = search(values)
     if res:
         return res
@@ -240,7 +278,7 @@ def solve(grid):
 
 if __name__ == '__main__':
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
-    # diag_sudoku_grid = '9.1....8.8.5.7..4.2.4....6...7......5..............83.3..6......9................'
+    # diag_sudoku_grid = '...7.9....85...31.2......7...........1..7.6......8...7.7.........3......85.......'
     display(solve(diag_sudoku_grid))
 
     for k,v in enumerate(square_units):
